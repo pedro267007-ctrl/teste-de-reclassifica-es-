@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reclassificação de Dados</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Definir Reclassificação</h1>
+    <p>Insira as regras de reclassificação no campo abaixo:</p>
+    <textarea id="reclassificationRules" rows="10" cols="50"></textarea>
+    <br>
+    <button id="reclassifyButton">Reclassificar</button>
+
+    <script>
+        const reclassificationRulesTextarea = document.getElementById('reclassificationRules');
+        const reclassifyButton = document.getElementById('reclassifyButton');
+
+        reclassifyButton.addEventListener('click', () => {
+            const rules = reclassificationRulesTextarea.value;
+            console.log('Reclassification Rules:', rules);
+        });
+    </script>
+</body>
+</html>
