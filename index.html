@@ -31,7 +31,7 @@
     <div class="container">
         <section>
             <h2>1. Registrar Nova Reclamação</h2>
-            <form id="submission-form" method="POST" enctype="multipart/form-data">
+            <form id="submission-form" enctype="multipart/form-data">
                 <div>
                     <label for="name">Seu Nome:</label>
                     <input type="text" id="name" name="Nome" required>
@@ -71,10 +71,10 @@
 
     <script>
         // =======================================================================
-        // URL da sua Web App do Google Apps Script (MESMO URL para Envio e Consulta)
-        // VOCÊ DEVE COLAR O SEU URL OBTIDO NA AÇÃO 1.3 AQUI
+        // 🛑 MUITO IMPORTANTE: COLE O SEU URL DA WEB APP DO APPS SCRIPT AQUI
         // =======================================================================
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwEr_GteQCuwrWdaiPi2-V_D0O8HKtSh-8d9Kkk9NQ9xDXOY4vU6ABP-Jz24kZ5TwbQ/exec'
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz8H2P6Mur5XroK3kvtuXVppW4-utOEZ4eXm080vLonQwrPey2YhAXBK_50hZl1gqLL/exec'; 
+        
         // --- Variáveis Comuns ---
         const submissionForm = document.getElementById("submission-form");
         const statusForm = document.getElementById("status-form");
@@ -101,7 +101,7 @@
         }
 
         // =======================================================================
-        // LÓGICA DE ENVIO DO FORMULÁRIO (Função doPost no Apps Script)
+        // LÓGICA DE ENVIO (doPost)
         // =======================================================================
 
         submissionForm.addEventListener("submit", function(event) {
@@ -118,7 +118,7 @@
 
             const data = new FormData(submissionForm);
 
-            // Chamada fetch CORRIGIDA para garantir o método POST
+            // Usa método POST
             fetch(APPS_SCRIPT_URL, {
                 method: 'POST', 
                 body: data 
@@ -153,7 +153,7 @@
 
 
         // =======================================================================
-        // LÓGICA DE CONSULTA DE STATUS (Função doGet no Apps Script)
+        // LÓGICA DE CONSULTA (doGet)
         // =======================================================================
 
         statusForm.addEventListener("submit", function(event) {
@@ -168,7 +168,7 @@
 
             const ticketId = document.getElementById("ticket-id").value;
             
-            // Monta a URL para o método GET (Consulta) com o parâmetro 'id'
+            // Monta a URL para o método GET
             const queryURL = APPS_SCRIPT_URL + '?id=' + encodeURIComponent(ticketId);
 
             fetch(queryURL)
@@ -180,7 +180,6 @@
             })
             .then(data => {
                 if (data.result === "success") {
-                    // Monta o resultado da devolutiva no HTML
                     const statusHtml = formatStatus(data.status);
                     
                     statusResult.style.backgroundColor = '#e9ecef';
