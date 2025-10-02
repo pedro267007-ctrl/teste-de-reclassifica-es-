@@ -1,24 +1,214 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt">
 <head>
-    <title>Reclassificação de Dados</title>
-    <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Reclamações Públicas</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f9; }
+        header { text-align: center; padding: 10px 0; background-color: #333; color: white; margin-bottom: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
+        h2 { border-bottom: 2px solid #ccc; padding-bottom: 5px; margin-top: 20px; }
+        form div { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="email"], textarea, input[type="file"] { width: 95%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        button { background-color: #5cb85c; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; }
+        button:disabled { background-color: #a4d4a4; cursor: not-allowed; }
+        button:hover:not(:disabled) { background-color: #4cae4c; }
+        .message-box { margin-top: 15px; padding: 10px; border-radius: 4px; border: 1px solid #ddd; }
+        .status-badge { display: inline-block; padding: 5px 10px; border-radius: 4px; font-weight: bold; margin-bottom: 10px; }
+        .status-pendente { background-color: #ffc107; color: #333; }
+        .status-analise { background-color: #007bff; color: white; }
+        .status-concluido { background-color: #28a745; color: white; }
+        .status-aguardando { background-color: #dc3545; color: white; }
+    </style>
 </head>
 <body>
-    <h1>Definir Reclassificação</h1>
-    <p>Insira as regras de reclassificação no campo abaixo:</p>
-    <textarea id="reclassificationRules" rows="10" cols="50"></textarea>
-    <br>
-    <button id="reclassifyButton">Reclassificar</button>
+    <header>
+        <h1>Central de Reclamações Públicas</h1>
+    </header>
+
+    <div class="container">
+        <section>
+            <h2>1. Registrar Nova Reclamação</h2>
+            <form id="submission-form" method="POST" enctype="multipart/form-data">
+                <div>
+                    <label for="name">Seu Nome:</label>
+                    <input type="text" id="name" name="Nome" required>
+                </div>
+                <div>
+                    <label for="email">Seu E-mail (Para Contato):</label>
+                    <input type="email" id="email" name="Email" required>
+                </div>
+                <div>
+                    <label for="pedido">Descrição da Reclamação:</label>
+                    <textarea id="pedido" name="Pedido" rows="5" required></textarea>
+                </div>
+                <div>
+                    <label for="file">Anexo de Imagem (Opcional - Máx. 10MB):</label>
+                    <input type="file" id="file" name="Anexo">
+                </div>
+                <button type="submit">Enviar Reclamação</button>
+                <div id="form-message" class="message-box" style="display:none;"></div>
+            </form>
+        </section>
+
+        <section>
+            <h2>2. Consultar Status e Devolutiva</h2>
+            <p>Use o ID de Rastreio fornecido após o envio da reclamação.</p>
+            <form id="status-form">
+                <div>
+                    <label for="ticket-id">ID de Rastreio:</label>
+                    <input type="text" id="ticket-id" name="id" required>
+                </div>
+                <button type="submit">Consultar</button>
+            </form>
+            
+            <div id="status-result" class="message-box" style="display:none;">
+                </div>
+        </section>
+    </div>
 
     <script>
-        const reclassificationRulesTextarea = document.getElementById('reclassificationRules');
-        const reclassifyButton = document.getElementById('reclassifyButton');
+        // =======================================================================
+        // URL da sua Web App do Google Apps Script (MESMO URL para Envio e Consulta)
+        // VOCÊ DEVE COLAR O SEU URL OBTIDO NA AÇÃO 1.3 AQUI
+        // =======================================================================
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwEr_GteQCuwrWdaiPi2-V_D0O8HKtSh-8d9Kkk9NQ9xDXOY4vU6ABP-Jz24kZ5TwbQ/exec'
+        // --- Variáveis Comuns ---
+        const submissionForm = document.getElementById("submission-form");
+        const statusForm = document.getElementById("status-form");
+        const formMessage = document.getElementById("form-message");
+        const statusResult = document.getElementById("status-result");
+        
+        // Função utilitária para formatar a mensagem de status
+        function formatStatus(status) {
+            let className = '';
+            let text = status;
+            
+            if (status.includes('Pendente')) {
+                className = 'status-pendente';
+            } else if (status.includes('Concluído')) {
+                className = 'status-concluido';
+            } else if (status.includes('Análise') || status.includes('Atribuído')) {
+                className = 'status-analise';
+            } else if (status.includes('Aguardando Cliente')) {
+                className = 'status-aguardando';
+                text = 'Aguardando Sua Resposta';
+            }
 
-        reclassifyButton.addEventListener('click', () => {
-            const rules = reclassificationRulesTextarea.value;
-            console.log('Reclassification Rules:', rules);
+            return `<span class="status-badge ${className}">${text}</span>`;
+        }
+
+        // =======================================================================
+        // LÓGICA DE ENVIO DO FORMULÁRIO (Função doPost no Apps Script)
+        // =======================================================================
+
+        submissionForm.addEventListener("submit", function(event) {
+            event.preventDefault(); 
+            const submitButton = submissionForm.querySelector('button[type="submit"]');
+
+            submitButton.disabled = true;
+            submitButton.textContent = 'Enviando...';
+            
+            formMessage.style.display = 'block';
+            formMessage.innerHTML = 'Processando sua reclamação...';
+            formMessage.style.backgroundColor = '#fff3cd';
+            formMessage.style.color = '#856404';
+
+            const data = new FormData(submissionForm);
+
+            // Chamada fetch CORRIGIDA para garantir o método POST
+            fetch(APPS_SCRIPT_URL, {
+                method: 'POST', 
+                body: data 
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erro de rede ou servidor Apps Script.');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && data.result === "success") {
+                    formMessage.style.backgroundColor = '#d4edda';
+                    formMessage.style.color = '#155724';
+                    formMessage.innerHTML = `Obrigado! Sua reclamação foi registrada. Seu **ID de Rastreio é <span style="font-size: 1.2em;">#${data.id}</span>**. Use-o na seção 2 para consultar o status.`;
+                    submissionForm.reset(); 
+                } else {
+                    throw new Error("Resposta inesperada do servidor Apps Script.");
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                formMessage.innerHTML = "Ops! Houve um erro no envio. Verifique o console ou a URL do Apps Script.";
+                formMessage.style.backgroundColor = '#f8d7da';
+                formMessage.style.color = '#721c24';
+            })
+            .finally(() => {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Enviar Reclamação';
+            });
         });
+
+
+        // =======================================================================
+        // LÓGICA DE CONSULTA DE STATUS (Função doGet no Apps Script)
+        // =======================================================================
+
+        statusForm.addEventListener("submit", function(event) {
+            event.preventDefault(); 
+            const submitButton = statusForm.querySelector('button[type="submit"]');
+
+            submitButton.disabled = true;
+            submitButton.textContent = 'Consultando...';
+            statusResult.style.display = 'block';
+            statusResult.style.backgroundColor = '#fff3cd';
+            statusResult.innerHTML = 'Buscando ID...';
+
+            const ticketId = document.getElementById("ticket-id").value;
+            
+            // Monta a URL para o método GET (Consulta) com o parâmetro 'id'
+            const queryURL = APPS_SCRIPT_URL + '?id=' + encodeURIComponent(ticketId);
+
+            fetch(queryURL)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erro de rede ou servidor Apps Script.');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.result === "success") {
+                    // Monta o resultado da devolutiva no HTML
+                    const statusHtml = formatStatus(data.status);
+                    
+                    statusResult.style.backgroundColor = '#e9ecef';
+                    statusResult.innerHTML = `
+                        <h3>Status da Reclamação #${ticketId}</h3>
+                        <p><strong>Status Atual:</strong> ${statusHtml}</p>
+                        <p><strong>Responsável:</strong> ${data.responsavel}</p>
+                        <p><strong>Devolutiva/Resposta:</strong></p>
+                        <p style="white-space: pre-wrap; background-color: white; padding: 10px; border: 1px dashed #ccc;">${data.devolutiva}</p>
+                    `;
+                } else if (data.result === "not_found") {
+                    statusResult.style.backgroundColor = '#f8d7da';
+                    statusResult.innerHTML = '<strong>Erro:</strong> ID de Rastreio não encontrado.';
+                } else {
+                    throw new Error("Resposta inesperada do servidor.");
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                statusResult.style.backgroundColor = '#f8d7da';
+                statusResult.innerHTML = '<strong>Erro de Consulta:</strong> Não foi possível conectar à base de dados.';
+            })
+            .finally(() => {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Consultar';
+            });
+        });
+
     </script>
 </body>
 </html>
